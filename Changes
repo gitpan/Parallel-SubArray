@@ -1,4 +1,8 @@
 
+0.4002 Tue Feb  3 23:04:11 CET 2009
+	- successfully tested on 5.10.0 and 5.8.6
+	- downgraded requirement to 5.8.6
+	
 0.4001 Tue Feb  3 22:16:35 CET 2009
 	- updated docs
 
