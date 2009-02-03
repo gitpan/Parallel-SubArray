@@ -1,17 +1,48 @@
 use strict;
-use Test::More tests => 5;
+use Test::More tests => 4;
+use Test::Deep;
 
 BEGIN { use_ok( 'Parallel::SubArray', 'par' ); }
 
 my $sub_arrayref = [
-		    sub{ sleep(1); [1] },
-		    sub{ while(1){}    },
-		    sub{ [ 1, {2,3} ]  },
+		    sub{ sleep(1); [1]  },
+		    sub{ bless {}, 'a'  },
+		    sub{ while(1){$_++} },
+		    sub{ die 'TEST'     },
+		    sub{ [ 1, {2,3} ]   },
 		   ];
 
 my $result_arrayref = par(3)->($sub_arrayref);
 
-is( @$result_arrayref,               3,     'Result count' );
-is( $result_arrayref->[0]->[0],      1,     'First result, simple structure.' );
-is( $result_arrayref->[1],           undef, 'Second result, failed' );
-is( $result_arrayref->[2]->[1]->{2}, 3,     'Third result, complex structure' );
+cmp_deeply( $result_arrayref,
+	    [ [1],
+	      bless({}, 'a'),
+	      undef,
+	      undef,
+	      [ 1, {2,3} ],
+	    ],
+	    'Results, scalar context'
+	  );
+
+my $error_arrayref;
+( $result_arrayref, $error_arrayref ) = par(3)->($sub_arrayref);
+
+cmp_deeply( $result_arrayref,
+	    [ [1],
+	      bless({}, 'a'),
+	      undef,
+	      undef,
+	      [ 1, {2,3} ],
+	    ],
+	    'Results, list context'
+	  );
+
+cmp_deeply( $error_arrayref,
+	    [ undef,
+	      undef,
+	      'TIMEOUT',
+	      "TEST at t/01.par.t line 11.\n",
+	      undef,
+	    ],
+	    'Errors good'
+	  );

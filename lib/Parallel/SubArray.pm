@@ -1,6 +1,6 @@
 package Parallel::SubArray;
-require 5.008_008;
-our $VERSION = 0.1;
+require v5.8.8;
+our $VERSION = 0.3;
 use strict;
 use Storable qw(store_fd fd_retrieve);
 use Exporter 'import';
@@ -9,10 +9,10 @@ our @EXPORT_OK = qw(par);
 sub par {
   my( $timeout ) = @_;
   sub {
-    my $subs = shift;
+    my @subs = @{ shift(@_) };
     my %rets;
     my $c = 0;
-    for my $sub ( @$subs ) {
+    for my $sub ( @subs ) {
       $c++;
       my( $parent_w, $child_r );
       pipe( $child_r, $parent_w );
@@ -25,36 +25,42 @@ sub par {
       } else {
 	die "Cannot fork: $!" unless defined $pid;
 	close $child_r;
-	local $SIG{ALRM} = sub {
+	my $exit = sub {
+	  my( $save_val, $exit_val ) = @_;
+	  store_fd $save_val, $parent_w;
 	  close $parent_w;
-	  exit 1;
+	  exit $exit_val;
 	};
+	local $SIG{ALRM} = sub { $exit->( ['TIMEOUT'], 1 ) };
 	alarm( $timeout || 0 );
 	my $ret = eval{ $sub->() };
-	my $error = $@;
+	my $err = $@;
 	alarm( 0 );
-	if( $error ) {
-	  warn "$error";
-	  $SIG{ALRM}->();
-	}
-	store_fd $ret, $parent_w;
-	close $parent_w;
-	exit 0;
+	$exit->( [$err], 1 ) if $err;
+	$exit->(  $ret , 0 );
       }
     }
     while(1) {
       my $pid = wait();
-      last if( $pid == -1 or not @$subs );
+      last if( $pid == -1 or not @subs );
       next if not exists $rets{ $pid };
-      pop @$subs;
-      $rets{ $pid }->{val} = $? ? undef()
-	                        : fd_retrieve( $rets{ $pid }->{fd} );
+      if( $? ) {
+	$rets{ $pid }->{err} = fd_retrieve( $rets{ $pid }->{fd} )->[0];
+      } else {
+	$rets{ $pid }->{val} = fd_retrieve( $rets{ $pid }->{fd} );
+      }
       close $rets{ $pid }->{fd};
+      pop @subs;
     }
-    [ map  { $rets{$_}->{val} }
-      sort { $rets{$a}->{ord} <=> $rets{$b}->{ord} }
-      keys %rets
-    ];
+    my $r = sub {
+      my( $key ) = @_;
+      # can be optimized
+      [ map  { $rets{$_}->{ $key } }
+	sort { $rets{$a}->{ord} <=> $rets{$b}->{ord} }
+	keys %rets
+      ];
+    };
+    return wantarray ? ( $r->('val'), $r->('err') ) : $r->('val');
   }
 }
 
@@ -63,33 +69,60 @@ __END__
 
 =head1 NAME
 
-Parallel::SubArray - Forked sub execution with return values and timeouts.
+Parallel::SubArray - Execute forked subref array and join return values, timeouts and error captures.
 
 =head1 SYNOPSIS
 
   use Parallel::SubArray 'par';
 
   my $sub_arrayref = [
-    sub{ sleep(1); [1] },
-    sub{ while(1){}    },
-    sub{ [ 1, {2=>3} ] },
+    sub{ sleep(1); [1]  }, # simple structure
+    sub{ bless {}, 'a'  }, # blessed structure
+    sub{ while(1){$_++} }, # runaway routine
+    sub{ die 'TEST'     }, # bad code
+    sub{ [ 1, {2=>3} ]  }, # complex structure
   ];
 
-  my $result_arrayref = par(3)->($sub_arrayref);
+  my($result_arrayref, $error_arrayref) = par(3)->($sub_arrayref);
+  ## or you can ignore errors
+  # my $result_arrayref = par(3)->($sub_arrayref);
 
   $result_arrayref == [
     [ 1 ],
+    {}, # blessed into 'a'
+    undef,
     undef,
     [ 1, { 2 => 3 } ]
   ];
 
+  $error_arrayref == [
+    undef,
+    undef,
+    'TIMEOUT',
+    'TEST',
+    undef,
+  ];
+
 =head1 DESCRIPTION
 
-I want fast, safe, and simple parallelism.  Current offerings did not satisfy me.  Most are not enough while remaining are too complex or tedious.  L<Palallel::SubArray> scratches my itch: forking, joining, timeouts, and return values done simply.
+I want fast, safe, and simple parallelism.  Current offerings did not
+satisfy me.  Most are not enough while remaining are too complex or
+tedious.  L<Palallel::SubArray> scratches my itch: forking, joining,
+timeouts, and return values done simply.
 
-=head1 EXPORT
+=head1 EXPORTS
 
-Nothing.  I don't like magic.
+Nothing automatically.  I don't like magic.
+
+=head2 par
+
+Takes one argument that represents timeout in seconds and evaluates
+into a subref that will execute subarrayref in parallel returning
+resultarrayref in scalar context or resultarrayref and errorarrayref
+in list context.
+
+Timeout can be undef or zero.  In this case timeout is disabled and
+you might never join forks.
 
 =head1 SEE ALSO
 
@@ -107,29 +140,33 @@ L<Parallel::Pvm>
 L<Parallel::Performing>
 L<Parallel::Fork::BossWorker>
 L<Parallel::ForkControl>
+L<Proc::Fork>
 
 =head1 BUGS
 
-Do not use Windows and don't even think of using Object Orientfuscation!  First part of the statement is justified by the lack of forking on that platform while second cannot exist in the parallel world of tomorrow as it requires locking and that defeats the whole purpose.  If you have the itch to ignore the first warning, you will get slower performance (because Perl emulates forking on Windows) and hopefully no bugs.  If you have the OO stones, let me know how you have solved the parallelism problem.  There are millions that will be happy to pay you millions for the answer.
+Expect lots if Windows or Object Orientation.  Windows because of the
+lack of forking and OOP has a hard time finding a foot in the parallel
+world as it requires locking.  If you have the itch to ignore the
+first warning, you will get slower performance (because Perl emulates
+forking on Windows) and hopefully no bugs.  If you have the OO stones,
+let me know how you have solved the parallelism problem.
 
-The joining mechanism of this module can be incompatible with other forking because it's waiting for child processes to finish.  Nesting of C<par> works as expected.
+The joining mechanism of this module can be incompatible with other
+forking because it's waiting for child processes to finish.  Nesting
+of C<par> works as expected.
 
-Subroutines passed to C<par> that return anything other than references to simple Perl structures may behave unexpectedly.
+Subroutines passed to C<par> that return anything other than
+references to simple Perl structures may behave unexpectedly.
 
 =head1 AUTHOR
 
-Eugene Grigoriev, intercalate "@" ["eugene.grigoriev", "gmail.com"]
+Eugene Grigoriev,
+
+  let a b c d e f g  = concat [e,f,d,g,c,f,b] in
+      a "com" "gmail" "grigoriev" "eugene" "." "@"
 
 =head1 LICENSE
 
-Copyright (c) 2009, Eugene Grigoriev
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-Neither the name of copyright holder nor the names of contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+BSD
 
 =cut

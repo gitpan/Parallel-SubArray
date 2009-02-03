@@ -1,7 +1,7 @@
 ---
-abstract: 'Forked sub execution with return values and timeouts.'
+abstract: 'Execute forked subref array and join return values, timeouts and error captures.'
 author:
-  - "Eugene Grigoriev, intercalate \"@\" [\"eugene.grigoriev\", \"gmail.com\"]"
+  - 'Eugene Grigoriev,'
 build_requires:
   Test::More: 0.86
 distribution_type: module
@@ -18,4 +18,4 @@ no_index:
 requires:
   Storable: 2.18
   perl: 5.800.8
-version: 0.1
+version: 0.3
