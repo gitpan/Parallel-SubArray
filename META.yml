@@ -1,0 +1,21 @@
+---
+abstract: 'Forked sub execution with return values and timeouts.'
+author:
+  - "Eugene Grigoriev, intercalate \"@\" [\"eugene.grigoriev\", \"gmail.com\"]"
+build_requires:
+  Test::More: 0.86
+distribution_type: module
+generated_by: 'Module::Install version 0.78'
+license: bsd
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Parallel-SubArray
+no_index:
+  directory:
+    - inc
+    - t
+requires:
+  Storable: 2.18
+  perl: 5.800.8
+version: 0.1
