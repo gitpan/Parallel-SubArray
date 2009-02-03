@@ -1,3 +1,6 @@
+0.3.1
+    - added Test::Deep for test_requires
+
 0.3 Tue Feb  3 19:33:36 CET 2009
     - capture errors in parallel subs
     - better test coverage

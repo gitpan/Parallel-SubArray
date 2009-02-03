@@ -3,6 +3,7 @@ abstract: 'Execute forked subref array and join return values, timeouts and erro
 author:
   - 'Eugene Grigoriev,'
 build_requires:
+  Test::Deep: 0.103
   Test::More: 0.86
 distribution_type: module
 generated_by: 'Module::Install version 0.78'
@@ -17,5 +18,5 @@ no_index:
     - t
 requires:
   Storable: 2.18
-  perl: 5.800.8
-version: 0.3
+  perl: 5.8.8
+version: 0.3.1
