@@ -1,6 +1,6 @@
 package Parallel::SubArray;
 require v5.8.8;
-our $VERSION = 0.3002;
+our $VERSION = 0.4001;
 use strict;
 use Storable qw(store_fd fd_retrieve);
 use Exporter 'import';
@@ -99,7 +99,8 @@ Parallel::SubArray - Execute forked subref array and join return values, timeout
     undef,
     undef,
     'TIMEOUT',
-    'TEST',
+    # can capture normal blessed exceptions aswell
+    'TEST at some file on some line',
     undef,
   ];
 
@@ -108,7 +109,7 @@ Parallel::SubArray - Execute forked subref array and join return values, timeout
 I want fast, safe, and simple parallelism.  Current offerings did not
 satisfy me.  Most are not enough while remaining are too complex or
 tedious.  L<Palallel::SubArray> scratches my itch: forking, joining,
-timeouts, and return values done simply.
+timeouts, return values, and error handling done simply.
 
 =head1 EXPORTS
 
@@ -123,6 +124,8 @@ in list context.
 
 Timeout can be undef or zero.  In this case timeout is disabled and
 you might never join forks.
+
+C<par> can die if unable to fork.
 
 =head1 SEE ALSO
 
@@ -144,19 +147,17 @@ L<Proc::Fork>
 
 =head1 BUGS
 
-Expect lots if Windows or Object Orientation.  Windows because of the
-lack of forking and OOP has a hard time finding a foot in the parallel
-world as it requires locking.  If you have the itch to ignore the
-first warning, you will get slower performance (because Perl emulates
-forking on Windows) and hopefully no bugs.  If you have the OO stones,
-let me know how you have solved the parallelism problem.
+Expect lots if Windows and/or OOP is used.  Windows because of the
+lack of forking and OOP because it requires locking.  This module is
+designed functionally and is relying on copy-on-write forking.
 
 The joining mechanism of this module can be incompatible with other
 forking because it's waiting for child processes to finish.  Nesting
 of C<par> works as expected.
 
 Subroutines passed to C<par> that return anything other than
-references to simple Perl structures may behave unexpectedly.
+references to simple Perl structures may behave unexpectedly. Joining
+relies on L<Storable>.
 
 =head1 AUTHOR
 
