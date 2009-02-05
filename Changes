@@ -1,4 +1,13 @@
+Parallel::SubArray Changelog
 
+0.5000 Thu Feb  5 20:13:40 CET 2009
+	- added a test for nested parallelism
+	- determined not to use subs for timeout
+		nor as return values
+	
+0.4003 Wed Feb  4 08:42:32 CET 2009
+	- added LICENSE to MANIFEST
+	
 0.4002 Tue Feb  3 23:04:11 CET 2009
 	- successfully tested on 5.10.0 and 5.8.6
 	- downgraded requirement to 5.8.6

@@ -9,30 +9,36 @@ my $sub_arrayref = [
 		    sub{ bless {}, 'a'  },
 		    sub{ while(1){$_++} },
 		    sub{ die 'TEST'     },
-		    sub{ [ 1, {2,3} ]   },
+                    sub{ par()->([
+				  sub{ sleep(1);  [1]  },
+				  sub{ sleep(2); {2,3} },
+				 ])
+		       },
 		   ];
 
-my $result_arrayref = par(3)->($sub_arrayref);
+my $par_coderef = par(3);
+
+my $result_arrayref = $par_coderef->($sub_arrayref);
 
 cmp_deeply( $result_arrayref,
 	    [ [1],
 	      bless({}, 'a'),
 	      undef,
 	      undef,
-	      [ 1, {2,3} ],
+	      [ [1], {2,3} ],
 	    ],
 	    'Results, scalar context'
 	  );
 
 my $error_arrayref;
-( $result_arrayref, $error_arrayref ) = par(3)->($sub_arrayref);
+( $result_arrayref, $error_arrayref ) = $par_coderef->($sub_arrayref);
 
 cmp_deeply( $result_arrayref,
 	    [ [1],
 	      bless({}, 'a'),
 	      undef,
 	      undef,
-	      [ 1, {2,3} ],
+	      [ [1], {2,3} ],
 	    ],
 	    'Results, list context'
 	  );

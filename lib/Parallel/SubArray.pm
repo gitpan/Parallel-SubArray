@@ -1,6 +1,6 @@
 package Parallel::SubArray;
-require v5.8.6;
-our $VERSION = 0.4002;
+require 5.008006;
+our $VERSION = 0.5000;
 use strict;
 use Storable qw(store_fd fd_retrieve);
 use Exporter 'import';
@@ -42,9 +42,10 @@ sub par {
     }
     while(1) {
       my $pid = wait();
+      my $err = $?;
       last if( $pid == -1 or not @subs );
       next if not exists $rets{ $pid };
-      if( $? ) {
+      if( $err ) {
 	$rets{ $pid }->{err} = fd_retrieve( $rets{ $pid }->{fd} )->[0];
       } else {
 	$rets{ $pid }->{val} = fd_retrieve( $rets{ $pid }->{fd} );
@@ -80,7 +81,11 @@ Parallel::SubArray - Execute forked subref array and join return values, timeout
     sub{ bless {}, 'a'  }, # blessed structure
     sub{ while(1){$_++} }, # runaway routine
     sub{ die 'TEST'     }, # bad code
-    sub{ [ 1, {2=>3} ]  }, # complex structure
+    sub{ par()->([         # nested parallelism
+           sub{ sleep(1);  [1]  },
+           sub{ sleep(2); {2,3} },
+         ]),
+       },
   ];
 
   my($result_arrayref, $error_arrayref) = par(3)->($sub_arrayref);
@@ -92,7 +97,7 @@ Parallel::SubArray - Execute forked subref array and join return values, timeout
     {}, # blessed into 'a'
     undef,
     undef,
-    [ 1, { 2 => 3 } ]
+    [ [1], { 2 => 3 } ]
   ];
 
   $error_arrayref == [
@@ -125,6 +130,11 @@ in list context.
 Timeout can be undef or zero.  In this case timeout is disabled and
 you might never join forks.
 
+When nesting parallelism, keep in mind the outer timeout.  Because if
+inner C<par> is cut off by the timeout of the outer, you will not be
+able to recover return nor error values of finished inner processes as
+the whole inner C<par> is considered to be a runaway process.
+
 C<par> can die if unable to fork.
 
 =head1 SEE ALSO
@@ -152,8 +162,8 @@ lack of forking and OOP because it requires locking.  This module is
 designed functionally and is relying on copy-on-write forking.
 
 The joining mechanism of this module can be incompatible with other
-forking because it's waiting for child processes to finish.  Nesting
-of C<par> works as expected.
+forking modules because it's waiting for child processes to finish.
+Nesting of C<par> works as expected.
 
 Subroutines passed to C<par> that return anything other than
 references to simple Perl structures may behave unexpectedly. Joining
