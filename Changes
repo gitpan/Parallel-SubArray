@@ -1,5 +1,8 @@
 Parallel::SubArray Changelog
 
+0.6    Tue Feb 10 23:24:16 CET 2009
+        - changed required Perl version to v5.8.6
+
 0.5000 Thu Feb  5 20:13:40 CET 2009
 	- added a test for nested parallelism
 	- determined not to use subs for timeout

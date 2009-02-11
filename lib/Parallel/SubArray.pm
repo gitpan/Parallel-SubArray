@@ -1,6 +1,6 @@
 package Parallel::SubArray;
-require 5.008006;
-our $VERSION = 0.5000;
+require v5.8.6;
+our $VERSION = 0.6;
 use strict;
 use Storable qw(store_fd fd_retrieve);
 use Exporter 'import';
